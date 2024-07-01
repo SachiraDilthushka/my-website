@@ -1,7 +1,6 @@
-
 pipeline {
     agent any
-    
+
     stages {
         stage('SCM Checkout') {
             steps {
@@ -17,16 +16,29 @@ pipeline {
         }
         stage('Login to Docker Hub') {
             steps {
-                withCredentials([string(credentialsId: 'samin-docker', variable: 'samindocker')]) {
-                    script {  
-                        sh "docker login -u adomicarts -p '${samindocker}'"
+                withCredentials([string(credentialsId: 'dockerhublogin', variable: 'dockerhublogin')]) {
+                    script {
+                        sh "docker login -u sachiraf -p '${dockerhublogin}'"
                     }
                 }
             }
         }
         stage('Push Image') {
             steps {
-                sh "docker push adomicarts/nodeapp-cuban:${BUILD_NUMBER}"
+                sh "docker push sachiraf/my-website:${BUILD_NUMBER}"
+            }
+        }
+        stage('Deploy to Server') {
+            steps {
+                sshagent(['ubuntu-03-sshkey']) {
+                    sh """
+                       ssh -o StrictHostKeyChecking=no ubuntu@ec2-16-171-149-238.eu-north-1.compute.amazonaws.com '
+                       docker pull sachiraf/my-website:${BUILD_NUMBER} &&
+                       docker stop my-website || true &&
+                       docker rm my-website || true &&
+                       docker run -d -p 80:80 --name my-website sachiraf/my-website:${BUILD_NUMBER}'
+                    """
+                }
             }
         }
     }
@@ -36,4 +48,3 @@ pipeline {
         }
     }
 }
-
